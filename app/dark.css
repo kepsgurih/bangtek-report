@@ -8,12 +8,13 @@ html,body{background:#0b111a;color:var(--ink)}body{background-image:radial-gradi
 .report-main,.admin-main,.auth-card{animation:reveal-panel .28s ease-out both}.admin-dialog[open]{animation:reveal-panel .18s ease-out both}.sprint-fact{transition:border-color .16s ease,background-color .16s ease}.sprint-fact:hover{border-color:#3d6874}.admin-table tbody tr{transition:background-color .12s ease}
 @media(max-width:700px){.admin-sidebar{border-color:#243747}.admin-mobile-session{border-top:1px solid #1e3242;margin-top:12px;padding-top:10px}.admin-sidebar nav button.selected{box-shadow:inset 0 -2px #5be0cc}.report-main,.admin-main,.auth-card{animation-duration:.2s}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.report-main,.admin-main,.auth-card,.admin-dialog[open]{animation:none}*,*::before,*::after{transition:none!important}}
-/* Small moving gradient tiles, limited in size to avoid full-screen animated surfaces. */
-.report{position:relative;isolation:isolate;background-image:linear-gradient(#6abedb03 1px,transparent 1px),linear-gradient(90deg,#6abedb03 1px,transparent 1px);background-size:64px 64px}
+/* Move exactly one grid tile so the loop stays seamless. */
+.report{position:relative;isolation:isolate;background-image:linear-gradient(#6abedb0b 1px,transparent 1px),linear-gradient(90deg,#6abedb0b 1px,transparent 1px);background-size:64px 64px;animation:report-grid-flow 8s linear infinite}
 .report::before,.report::after{content:"";position:fixed;pointer-events:none;z-index:-1;border-radius:50%;contain:strict}
-.report::before{width:320px;height:320px;right:2vw;top:12vh;background:radial-gradient(circle,#22cbbf20 0%,#1886c20b 45%,transparent 72%);animation:ambient-drift 26s ease-in-out infinite alternate}
-.report::after{width:220px;height:220px;left:3vw;bottom:8vh;background:radial-gradient(circle,#477eea1c 0%,#3567bd08 45%,transparent 72%);animation:ambient-drift-secondary 32s ease-in-out infinite alternate}
-@keyframes ambient-drift{from{transform:translate(0,0)}to{transform:translate(-42px,52px)}}
-@keyframes ambient-drift-secondary{from{transform:translate(0,0)}to{transform:translate(34px,-38px)}}
-@media(max-width:600px){.report::before{width:240px;height:240px;right:-45px;top:19vh;animation-duration:30s}.report::after{display:none}}
-@media(prefers-reduced-motion:reduce){.report::before,.report::after{animation:none}}
+.report::before{width:min(480px,80vw);height:min(480px,80vw);right:2vw;top:8vh;background:radial-gradient(circle,#22cbbf40 0%,#1886c21a 42%,transparent 72%);animation:ambient-drift 10s ease-in-out -3s infinite alternate}
+.report::after{width:min(360px,65vw);height:min(360px,65vw);left:3vw;bottom:8vh;background:radial-gradient(circle,#477eea38 0%,#3567bd18 42%,transparent 72%);animation:ambient-drift-secondary 13s ease-in-out -6s infinite alternate}
+@keyframes report-grid-flow{from{background-position:0 0}to{background-position:64px 64px}}
+@keyframes ambient-drift{from{transform:translate(0,0);opacity:.7}to{transform:translate(-12vw,14vh);opacity:1}}
+@keyframes ambient-drift-secondary{from{transform:translate(0,0);opacity:1}to{transform:translate(14vw,-16vh);opacity:.65}}
+@media(max-width:600px){.report::before{top:12vh}.report::after{bottom:12vh}}
+@media(prefers-reduced-motion:reduce){.report,.report::before,.report::after{animation:none}}
