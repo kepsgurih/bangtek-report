@@ -137,7 +137,13 @@ export default function Report({ data }: { data: ReportData }) {
     data.sprints[0];
   const backlog = data.tasks.filter((t) => t.sprintId === null);
   const isBacklog = params.get("view") === "backlog";
-  const tasks = data.tasks.filter((t) => t.sprintId === selected?.id);
+  const tasks = data.tasks
+    .filter((t) => t.sprintId === selected?.id)
+    .sort(
+      (a, b) =>
+        Number(b.status === "in_progress") -
+        Number(a.status === "in_progress"),
+    );
   const [query, setQuery] = useState("");
   const [priority, setPriority] = useState("all");
   const [notice, setNotice] = useState("");
