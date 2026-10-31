@@ -55,12 +55,24 @@ function TaskItem({
           <span className="task-id">TASK-{task.id}</span>
           <h2 className="simple-task-title">{task.title}</h2>
         </div>
-        <span
-          aria-label={`Prioritas ${priorityLabels[task.priority]}`}
-          className={`report-priority ${task.priority === "high" ? "priority-high" : ""}`}
-        >
-          {priorityLabels[task.priority]}
-        </span>
+        <div className="sprint-task-badges">
+          {task.status === "in_progress" && (
+            <span className="task-badge-progress" aria-label="Sedang dikerjakan">
+              <span>Dikerjakan</span>
+            </span>
+          )}
+          {task.status === "done" && (
+            <span className="task-badge-done" aria-label="Selesai">
+              <span>Selesai</span>
+            </span>
+          )}
+          <span
+            aria-label={`Prioritas ${priorityLabels[task.priority]}`}
+            className={`report-priority ${task.priority === "high" ? "priority-high" : ""}`}
+          >
+            {priorityLabels[task.priority]}
+          </span>
+        </div>
       </div>
       <TaskDescription text={task.description} id={String(task.id)} />
       <details className="task-stage-details" open={first}>
