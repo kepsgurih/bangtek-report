@@ -57,7 +57,10 @@ function TaskItem({
         </div>
         <div className="sprint-task-badges">
           {task.status === "in_progress" && (
-            <span className="task-badge-progress" aria-label="Sedang dikerjakan">
+            <span
+              className="task-badge-progress"
+              aria-label="Sedang dikerjakan"
+            >
               <span>Dikerjakan</span>
             </span>
           )}
@@ -347,7 +350,6 @@ export default function Report({ data }: { data: ReportData }) {
           </section>
         )}
         <footer className="report-footer">
-          <Link href="/admin">Admin ↗</Link>
           <span>
             {!isBacklog && selected
               ? `Diperbarui ${formatDate(selected.updatedAt)}`
