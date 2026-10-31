@@ -1,3 +1,5 @@
+import { revalidateTag, revalidatePath } from "next/cache";
+import { PUBLIC_REPORT_TAG } from "@/lib/cache-keys";
 import { and, eq, desc, sql } from "drizzle-orm";
 import { allowedOrigin } from "@/lib/origin";
 import { db } from "@/lib/db";
@@ -52,6 +54,10 @@ export async function POST(request: Request) {
         if (!rows.length) return Response.json({ error: "Task telah berubah. Muat ulang sebelum menyimpan." }, { status: 409 });
       } else await db.insert(tasks).values(values);
     }
+    if (input.resource !== "access") {
+      revalidateTag(PUBLIC_REPORT_TAG, { expire: 0 });
+      revalidatePath("/");
+    }
     return Response.json({ ok: true });
   } catch (error) { return failure(error); }
 }
@@ -71,6 +77,8 @@ export async function DELETE(request: Request) {
       ? await db.delete(sprints).where(and(eq(sprints.id, id), eq(sprints.version, version))).returning({ id: sprints.id })
       : await db.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.version, version))).returning({ id: tasks.id });
     if (!rows.length) return Response.json({ error: "Data telah berubah atau dihapus. Muat ulang daftar." }, { status: 409 });
+    revalidateTag(PUBLIC_REPORT_TAG, { expire: 0 });
+    revalidatePath("/");
     return Response.json({ ok: true });
   } catch (error) { return failure(error); }
 }

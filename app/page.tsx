@@ -1,9 +1,7 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 import { getReportData } from "@/lib/data";
 import Report from "./report";
 async function PublicReport() {
-  await connection();
   const data = await getReportData();
   return <Report data={data} />;
 }

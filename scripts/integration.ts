@@ -67,6 +67,21 @@ try {
   check(!(await request(`/?sprint=${number}`)).text.includes(marker), "Draft sprint and assigned tasks must stay private");
   check((await request("/api/admin", "POST", { resource: "sprint", data: { ...savedSprint, published: true } }, first.cookie)).status === 200, "Publish sprint");
   check((await request(`/?sprint=${number}`)).text.includes(task.title), "Published report must contain saved task");
+  // Warm the public cache, then ensure an admin edit cannot leave stale public content.
+  state = (await request("/api/admin", "GET", undefined, first.cookie)).data;
+  savedTask = state.tasks.find((row: any) => row.id === savedTask.id);
+  const updatedTitle = task.title + "-updated";
+  check((await request("/api/admin", "POST", { resource: "task", data: { ...savedTask, title: updatedTitle } }, first.cookie)).status === 200, "Update a published task");
+  check((await request(`/?sprint=${number}`)).text.includes(updatedTitle), "Admin save must immediately invalidate the public cache");
+  state = (await request("/api/admin", "GET", undefined, first.cookie)).data;
+  savedSprint = state.sprints.find((row: any) => row.id === savedSprint.id);
+  check((await request("/api/admin", "POST", { resource: "sprint", data: { ...savedSprint, published: false } }, first.cookie)).status === 200, "Unpublish a cached sprint");
+  check(!(await request(`/?sprint=${number}`)).text.includes(updatedTitle), "Unpublished task must disappear from cached public responses");
+  state = (await request("/api/admin", "GET", undefined, first.cookie)).data;
+  savedTask = state.tasks.find((row: any) => row.id === savedTask.id);
+  savedSprint = state.sprints.find((row: any) => row.id === savedSprint.id);
+  check((await request("/api/admin", "DELETE", { resource: "task", id: savedTask.id, version: savedTask.version }, first.cookie)).status === 200, "Delete task through the authenticated API");
+  check((await request("/api/admin", "DELETE", { resource: "sprint", id: savedSprint.id, version: savedSprint.version }, first.cookie)).status === 200, "Delete empty sprint through the authenticated API");
   const wrong = await request("/api/auth/sign-in/email", "POST", { email: first.email, password: password + "wrong" });
   check(wrong.status === 401, "Incorrect password must be rejected");
   check((await request("/api/auth/sign-out", "POST", {}, first.cookie)).status === 200, "Sign out must succeed");

@@ -30,13 +30,13 @@ Next.js App Router, TypeScript, **PostgreSQL**, **Drizzle ORM**, dan autentikasi
 
 `/` menampilkan sprint aktif yang sudah diterbitkan, atau arsip terbaru jika belum ada sprint aktif. Sprint **draft** beserta task di dalamnya tidak tampil di publik. Menu backlog menampilkan task yang belum dimasukkan ke sprint; task backlog wajib berstatus belum dimulai.
 
-Pilih sprint melalui menu atau buka `/?sprint=18`. Backlog tersedia di `/?view=backlog`. Setiap task memiliki nomor, prioritas, deskripsi Show more/Show less, serta tahapan. Tahap selesai dicoret dan rincian task pertama terbuka otomatis. Perubahan admin dibaca dari database saat laporan dimuat ulang.
+Pilih sprint melalui menu atau buka `/?sprint=18`. Backlog tersedia di `/?view=backlog`. Setiap task memiliki nomor, prioritas, deskripsi Show more/Show less, serta tahapan. Tahap selesai dicoret dan rincian task pertama terbuka otomatis. Data publik menggunakan cache bawaan Next.js (`use cache`, `cacheLife`, `cacheTag`): `stale`, `revalidate`, dan `expire` bernilai `Infinity`, sehingga tidak ada revalidasi berkala berdasarkan waktu. Cache hanya diinvalidasi saat ada perubahan data melalui admin; cache yang kosong akibat restart/deploy tetap dibangun dari PostgreSQL. Penyimpanan/penghapusan sprint atau task menginvalidasi tag publik dan route `/` secara langsung. Data admin, sesi, dan izin tidak di-cache. Pemilihan sprint dan perpindahan menu laporan/backlog memakai Native History API yang terintegrasi dengan Next.js, sehingga tidak membutuhkan request server baru setelah data awal dimuat. Laporan yang sudah terbuka perlu dimuat ulang untuk mengambil perubahan admin terbaru.
 
 ## Riwayat repo
 
-`bun run db:import-history` mengimpor arsip 16–18 dari riwayat lokal `client` dan `core` yang sudah ditinjau. Script tidak menimpa sprint dengan nomor yang sama. Sumber commit dicatat di laporan.
+`bun run db:import-history` mengimpor arsip 1–18 dari riwayat lokal `client` dan `core` yang sudah ditinjau. Script mempertahankan metadata sprint yang sudah ada dan hanya menambahkan judul task yang belum tersedia pada sprint tersebut. Sprint 1–16 memiliki sedikitnya lima task. Sumber commit dicatat di laporan.
 
-**Nomor sprint diimpor berdasarkan perkiraan versi minor, bukan batas sprint yang terverifikasi.** Tanggal mengikuti commit versi. Status selesai berarti perubahan masuk riwayat Git, bukan bukti pengujian atau rilis produksi. Judul, tanggal, task, dan sumber dapat dikoreksi melalui admin.
+**Nomor sprint adalah rekonstruksi, bukan batas sprint yang terverifikasi.** Versi 1.1–1.9 tidak tercatat di package history; Sprint 1–9 dikelompokkan dari milestone commit secara kronologis. Sprint 10–18 mengikuti versi minor dan perubahan di periode terkait. Tanggal menggunakan commit yang diperiksa. Status selesai berarti perubahan masuk riwayat Git, bukan bukti pengujian atau rilis produksi. Judul, tanggal, task, dan sumber dapat dikoreksi melalui admin.
 
 ## Database dan pemeriksaan
 

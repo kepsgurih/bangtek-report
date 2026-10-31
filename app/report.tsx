@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { ReportData, Task } from "@/lib/types";
 
 const priorityLabels = { high: "Tinggi", medium: "Sedang", low: "Rendah" };
@@ -116,7 +116,6 @@ function TaskItem({
 }
 export default function Report({ data }: { data: ReportData }) {
   const params = useSearchParams();
-  const router = useRouter();
   const selected =
     data.sprints.find((s) => String(s.number) === params.get("sprint")) ??
     data.sprints.find((s) => s.status === "active") ??
@@ -134,6 +133,12 @@ export default function Report({ data }: { data: ReportData }) {
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  function navigateReport(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    setNotice("");
+    window.history.pushState(null, "", event.currentTarget.href);
+  }
   async function share() {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -155,18 +160,18 @@ export default function Report({ data }: { data: ReportData }) {
       </header>
       <main className="report-main">
         <nav className="report-menu" aria-label="Menu laporan">
-          <Link
+          <a onClick={navigateReport}
             href={`/?${querySprint}`}
             aria-current={!isBacklog ? "page" : undefined}
           >
             Laporan sprint
-          </Link>
-          <Link
+          </a>
+          <a onClick={navigateReport}
             href={`/?view=backlog${querySprint ? `&${querySprint}` : ""}`}
             aria-current={isBacklog ? "page" : undefined}
           >
             Backlog <span>{backlog.length}</span>
-          </Link>
+          </a>
         </nav>
         {notice && (
           <div className="report-notice" role="status">
@@ -235,7 +240,7 @@ export default function Report({ data }: { data: ReportData }) {
                     value={selected.number}
                     onChange={(e) => {
                       setNotice("");
-                      router.push(`/?sprint=${e.target.value}`);
+                      window.history.pushState(null, "", `/?sprint=${e.target.value}`);
                     }}
                   >
                     {data.sprints.map((sprint) => (
