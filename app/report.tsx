@@ -134,7 +134,14 @@ export default function Report({ data }: { data: ReportData }) {
         .includes(query.toLowerCase()),
   );
   function navigateReport(event: MouseEvent<HTMLAnchorElement>) {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
     event.preventDefault();
     setNotice("");
     window.history.pushState(null, "", event.currentTarget.href);
@@ -160,13 +167,15 @@ export default function Report({ data }: { data: ReportData }) {
       </header>
       <main className="report-main">
         <nav className="report-menu" aria-label="Menu laporan">
-          <a onClick={navigateReport}
+          <a
+            onClick={navigateReport}
             href={`/?${querySprint}`}
             aria-current={!isBacklog ? "page" : undefined}
           >
             Laporan sprint
           </a>
-          <a onClick={navigateReport}
+          <a
+            onClick={navigateReport}
             href={`/?view=backlog${querySprint ? `&${querySprint}` : ""}`}
             aria-current={isBacklog ? "page" : undefined}
           >
@@ -240,7 +249,11 @@ export default function Report({ data }: { data: ReportData }) {
                     value={selected.number}
                     onChange={(e) => {
                       setNotice("");
-                      window.history.pushState(null, "", `/?sprint=${e.target.value}`);
+                      window.history.pushState(
+                        null,
+                        "",
+                        `/?sprint=${e.target.value}`,
+                      );
                     }}
                   >
                     {data.sprints.map((sprint) => (

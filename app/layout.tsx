@@ -5,7 +5,8 @@ import "./dark.css";
 
 export const metadata: Metadata = {
   title: "Bangtek Progress — Laporan Sprint",
-  description: "Lihat fokus sprint, progres pekerjaan, dan rencana berikutnya dalam bahasa yang mudah dipahami.",
+  description:
+    "Lihat fokus sprint, progres pekerjaan, dan rencana berikutnya dalam bahasa yang mudah dipahami.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
