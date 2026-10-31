@@ -508,7 +508,7 @@ export function Admin({ access }: { access: Access }) {
                   <tbody>
                     {(tab === "Ringkasan"
                       ? rows.slice(-6).reverse()
-                      : rows
+                      : rows.slice().reverse()
                     ).map((row) => (
                       <tr key={row.id}>
                         <td>
