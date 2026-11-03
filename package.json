@@ -11,6 +11,7 @@
     "db:migrate": "bun --env-file=.env.local scripts/migrate.ts",
     "test": "bun test tests",
     "db:import-history": "bun --env-file=.env.local scripts/import-history.ts",
+    "api:token": "bun --env-file=.env.local scripts/create-api-token.ts",
     "test:integration": "bun --env-file=.env.local scripts/integration.ts"
   },
   "dependencies": {

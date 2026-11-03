@@ -38,6 +38,30 @@ Pilih sprint melalui menu atau buka `/?sprint=18`. Backlog tersedia di `/?view=b
 
 **Nomor sprint adalah rekonstruksi, bukan batas sprint yang terverifikasi.** Versi 1.1–1.9 tidak tercatat di package history; Sprint 1–9 dikelompokkan dari milestone commit secara kronologis. Sprint 10–18 mengikuti versi minor dan perubahan di periode terkait. Tanggal menggunakan commit yang diperiksa. Status selesai berarti perubahan masuk riwayat Git, bukan bukti pengujian atau rilis produksi. Judul, tanggal, task, dan sumber dapat dikoreksi melalui admin.
 
+## API automation
+
+`/api/automation` adalah endpoint JSON untuk otomatisasi (Hermes, skrip, cron). Autentikasi memakai header `Authorization: Bearer <token>`; token disimpan sebagai SHA-256 di tabel `bangtek_api_token`.
+
+Membuat token (memperbarui token bernama `hermes` dan mencetak nilai mentahnya sekali):
+
+```bash
+bun run db:migrate
+bun run api:token hermes
+```
+
+Semua request berupa `POST` dengan body `{"action": "...", ...}`. Action yang tersedia: `tasks.list`, `tasks.get`, `tasks.create`, `tasks.update`, `tasks.delete`, `sprints.create`, `sprints.update`, `sprints.delete`. Task dapat ditulis sebagai `12` atau `"TASK-12"`; sprint memakai nomor laporan (`19`), dan `sprint: "active"` atau `"backlog"` untuk penempatan otomatis.
+
+Contoh:
+
+```bash
+curl -sS https://tasks.bangtek.org/api/automation \
+  -H "Authorization: Bearer $BANGTEK_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"tasks.create","title":"Contoh task","sprint":"active"}'
+```
+
+Setiap mutasi melalui endpoint ini memanggil invalidasi cache laporan publik (`revalidateTag` + `revalidatePath("/")`), jadi perubahan langsung terlihat di `/` tanpa deploy ulang. Token dicadangkan untuk otomatisasi; hak akses akun tetap memakai sesi admin.
+
 ## Database dan pemeriksaan
 
 - `bun run db:generate`: menghasilkan migrasi SQL dari schema Drizzle.

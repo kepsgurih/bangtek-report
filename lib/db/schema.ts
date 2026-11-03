@@ -22,6 +22,13 @@ export const verification = pgTable("bangtek_verification", { id: text("id").pri
 export const rateLimit = pgTable("bangtek_rate_limit", { id: text("id").primaryKey(), key: text("key").notNull().unique(), count: integer("count").notNull(), lastRequest: bigint("last_request", { mode: "number" }).notNull() });
 export const owner = pgTable("bangtek_owner", { id: integer("id").primaryKey(), userId: text("user_id").notNull().references(() => user.id, { onDelete: "restrict" }) });
 export const adminAccess = pgTable("bangtek_admin_access", { userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }), approved: boolean("approved").default(false).notNull() });
+export const apiToken = pgTable("bangtek_api_token", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: createdAt(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
 export const sprints = pgTable("bangtek_sprint", {
   id: serial("id").primaryKey(), number: integer("number").notNull().unique(), title: text("title").notNull(),
   startDate: date("start_date").notNull(), endDate: date("end_date").notNull(),

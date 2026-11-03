@@ -15,6 +15,13 @@
       "when": 1793452991795,
       "tag": "0001_burly_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793698610747,
+      "tag": "0002_fluffy_nomad",
+      "breakpoints": true
     }
   ]
 }
