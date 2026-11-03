@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
+import { io } from "next/cache";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "./db";
 import { session, user, rateLimit } from "./db/schema";
@@ -15,6 +16,9 @@ export function newSession(userId: string) {
 export async function getSession() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
+  // `new Date()` below is not render-predictable; `io()` keeps the query
+  // (and its timestamp) out of the prerendered static shell.
+  await io();
   const [row] = await db.select({ id: session.id, user: { id: user.id, name: user.name, email: user.email } }).from(session).innerJoin(user, eq(user.id, session.userId)).where(and(eq(session.token, tokenHash(token)), gt(session.expiresAt, new Date()))).limit(1);
   return row ?? null;
 }

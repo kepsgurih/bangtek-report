@@ -20,6 +20,12 @@ type TaskDraft = Omit<Task, "id" | "updatedAt" | "version"> & {
   id?: number;
   version?: number;
 };
+type TabLabel =
+  | "Ringkasan"
+  | "Sprint"
+  | "Tasks"
+  | "Backlog"
+  | "Akses akun";
 const statuses: Record<Task["status"], string> = {
   todo: "Belum dimulai",
   in_progress: "Dikerjakan",
@@ -31,6 +37,12 @@ const priorities: Record<Task["priority"], string> = {
   medium: "Sedang",
   low: "Rendah",
 };
+const statusOptions: Task["status"][] = [
+  "todo",
+  "in_progress",
+  "blocked",
+  "done",
+];
 const defaultSteps = [
   "Sepakati kebutuhan",
   "Rancang solusi",
@@ -38,15 +50,61 @@ const defaultSteps = [
   "Pengujian",
   "Siap digunakan",
 ].map((title) => ({ title, done: false }));
+const tabIcons: Record<TabLabel, React.ReactNode> = {
+  Ringkasan: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+    </svg>
+  ),
+  Sprint: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="15" rx="3" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" />
+    </svg>
+  ),
+  Tasks: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7.5l2.2 2.2L10 5.9" />
+      <path d="M4 16.6l2.2 2.2L10 14" />
+      <path d="M13.5 7.5H20M13.5 16.5H20" />
+    </svg>
+  ),
+  Backlog: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 6.5h16M4 12h16M4 17.5h10" />
+    </svg>
+  ),
+  "Akses akun": (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8.5" r="3.5" />
+      <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
+    </svg>
+  ),
+};
+const tabDescriptions: Record<TabLabel, string> = {
+  Ringkasan: "Pantau pekerjaan dan siapkan update berikutnya.",
+  Sprint: "Atur periode, status, dan publikasi laporan.",
+  Tasks: "Kelola prioritas dan progres setiap pekerjaan.",
+  Backlog: "Rencanakan pekerjaan sebelum masuk sprint.",
+  "Akses akun": "Setujui atau cabut akses pengelola laporan.",
+};
+
+function Icon({ name }: { name: TabLabel }) {
+  return <span className="admin-icon">{tabIcons[name]}</span>;
+}
 
 export function Admin({ access }: { access: Access }) {
-  const [tab, setTab] = useState("Ringkasan");
+  const [tab, setTab] = useState<TabLabel>("Ringkasan");
   const [data, setData] = useState<Workspace | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [sprintFilter, setSprintFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [editor, setEditor] = useState<"sprint" | "task" | null>(null);
   const [sprint, setSprint] = useState<SprintDraft | null>(null);
   const [task, setTask] = useState<TaskDraft | null>(null);
@@ -68,8 +126,10 @@ export function Admin({ access }: { access: Access }) {
     if (access.approved) void refresh();
   }, [access.approved, refresh]);
   useEffect(() => {
-    if (editor && dialog.current && !dialog.current.open)
+    if (editor && dialog.current && !dialog.current.open) {
       dialog.current.showModal();
+      dialog.current.scrollTop = 0;
+    }
   }, [editor]);
   async function logout() {
     try {
@@ -187,6 +247,7 @@ export function Admin({ access }: { access: Access }) {
           bangtek.
         </Link>
         <section className="auth-card">
+          <span className="admin-eyebrow">PROJECT WORKSPACE</span>
           <h1>Menunggu persetujuan</h1>
           <p>
             Akun {access.user.email} sudah terdaftar. Admin utama perlu
@@ -205,40 +266,84 @@ export function Admin({ access }: { access: Access }) {
       </main>
     );
   const active = data?.sprints.find((s) => s.status === "active");
+  const tabs: TabLabel[] = [
+    "Ringkasan",
+    "Sprint",
+    "Tasks",
+    "Backlog",
+    ...(access.isOwner ? (["Akses akun"] as TabLabel[]) : []),
+  ];
   const rows = (data?.tasks ?? []).filter(
     (t) =>
       (tab !== "Backlog" || t.sprintId === null) &&
       (tab !== "Tasks" ||
         sprintFilter === "all" ||
         String(t.sprintId) === sprintFilter) &&
+      (statusFilter === "all" || t.status === statusFilter) &&
       `${t.title} TASK-${t.id}`.toLowerCase().includes(query.toLowerCase()),
   );
+  const sprintTasks = (data?.tasks ?? []).filter(
+    (t) => t.sprintId === active?.id,
+  );
+  const doneTasks = sprintTasks.filter((t) => t.status === "done").length;
+  const backlogCount = (data?.tasks ?? []).filter(
+    (t) => t.sprintId === null,
+  ).length;
+  const statCards = [
+    {
+      label: "Sprint aktif",
+      value: active ? String(active.number) : "—",
+      hint: active ? active.title : "Belum ada sprint aktif",
+      tone: "accent",
+    },
+    {
+      label: "Task dalam sprint",
+      value: String(sprintTasks.length),
+      hint: sprintTasks.length
+        ? `${sprintTasks.length - doneTasks} masih dikerjakan`
+        : "Belum ada task",
+      tone: "plain",
+    },
+    {
+      label: "Task selesai",
+      value: String(doneTasks),
+      hint: sprintTasks.length
+        ? `${Math.round((doneTasks / sprintTasks.length) * 100)}% progres sprint`
+        : "Belum ada progres",
+      tone: "success",
+    },
+    {
+      label: "Backlog",
+      value: String(backlogCount),
+      hint: backlogCount
+        ? "Siap dijadwalkan ke sprint"
+        : "Semua sudah terjadwal",
+      tone: "plain",
+    },
+  ];
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <Link href="/admin" className="auth-brand">
-          bangtek.
-        </Link>
+        <div className="admin-brand">
+          <Link href="/admin" className="auth-brand">
+            bangtek.
+          </Link>
+          <span className="admin-brand-tag">ADMIN</span>
+        </div>
         <span className="admin-workspace-label">PROJECT WORKSPACE</span>
         <nav aria-label="Menu admin">
-          {[
-            "Ringkasan",
-            "Sprint",
-            "Tasks",
-            "Backlog",
-            ...(access.isOwner ? ["Akses akun"] : []),
-          ].map((label, index) => (
+          {tabs.map((label) => (
             <button
               key={label}
               className={tab === label ? "selected" : ""}
+              aria-current={tab === label ? "page" : undefined}
               onClick={() => {
                 setTab(label);
                 setQuery("");
+                setStatusFilter("all");
               }}
             >
-              <span aria-hidden="true">
-                {["◫", "◷", "☷", "▤", "♙"][index]}
-              </span>
+              <Icon name={label} />
               {label}
             </button>
           ))}
@@ -248,37 +353,37 @@ export function Admin({ access }: { access: Access }) {
           <button onClick={logout}>Keluar</button>
         </div>
         <div className="admin-sidebar-bottom">
-          <Link href="/" target="_blank">
+          <Link href="/" target="_blank" className="admin-public-link">
             Buka laporan publik ↗
           </Link>
-          <strong>{access.user.name}</strong>
-          <small>{access.isOwner ? "Admin utama" : "Admin"}</small>
-          <button onClick={logout}>Keluar</button>
+          <div className="admin-user">
+            <span className="admin-avatar" aria-hidden="true">
+              {(access.user.name || access.user.email).charAt(0).toUpperCase()}
+            </span>
+            <span className="admin-user-text">
+              <strong>{access.user.name}</strong>
+              <small>{access.isOwner ? "Admin utama" : "Admin"}</small>
+            </span>
+          </div>
+          <button className="admin-logout" onClick={logout}>
+            Keluar
+          </button>
         </div>
       </aside>
       <main className="admin-main">
         <header className="admin-heading">
-          <div>
+          <div className="admin-heading-text">
             <span className="admin-eyebrow">BANGTEK / ADMIN</span>
             <h1>{tab}</h1>
-            <p>
-              {tab === "Backlog"
-                ? "Rencanakan pekerjaan sebelum masuk sprint."
-                : tab === "Sprint"
-                  ? "Atur periode, status, dan publikasi laporan."
-                  : tab === "Tasks"
-                    ? "Kelola prioritas dan progres setiap pekerjaan."
-                    : tab === "Akses akun"
-                      ? "Setujui atau cabut akses pengelola laporan."
-                      : "Pantau pekerjaan dan siapkan update berikutnya."}
-            </p>
+            <p>{tabDescriptions[tab]}</p>
           </div>
           {tab !== "Akses akun" && (
             <button
               className="admin-primary"
               onClick={() => (tab === "Sprint" ? editSprint() : editTask())}
             >
-              + {tab === "Sprint" ? "Sprint baru" : "Task baru"}
+              <span aria-hidden="true">+</span>
+              {tab === "Sprint" ? "Sprint baru" : "Task baru"}
             </button>
           )}
         </header>
@@ -290,46 +395,25 @@ export function Admin({ access }: { access: Access }) {
         )}
         {notice && (
           <div className="admin-notice" role="status">
+            <span className="admin-notice-dot" aria-hidden="true" />
             {notice}
           </div>
         )}
         {!data ? (
-          <div className="admin-card">
-            {error ? "Data belum tersedia." : "Memuat data…"}
-          </div>
+          <div className="admin-card admin-loading">Memuat data…</div>
         ) : (
           <>
             {tab === "Ringkasan" && (
               <>
                 <div className="admin-stats">
-                  {[
-                    ["Sprint aktif", active ? String(active.number) : "—"],
-                    [
-                      "Task dalam sprint",
-                      String(
-                        data.tasks.filter((t) => t.sprintId === active?.id)
-                          .length,
-                      ),
-                    ],
-                    [
-                      "Task selesai",
-                      String(
-                        data.tasks.filter(
-                          (t) =>
-                            t.sprintId === active?.id && t.status === "done",
-                        ).length,
-                      ),
-                    ],
-                    [
-                      "Backlog",
-                      String(
-                        data.tasks.filter((t) => t.sprintId === null).length,
-                      ),
-                    ],
-                  ].map(([title, value]) => (
-                    <section className="admin-card" key={title}>
-                      <small>{title}</small>
-                      <strong>{value}</strong>
+                  {statCards.map((card) => (
+                    <section
+                      className={`admin-card admin-stat admin-stat-${card.tone}`}
+                      key={card.label}
+                    >
+                      <small>{card.label}</small>
+                      <strong>{card.value}</strong>
+                      <span>{card.hint}</span>
                     </section>
                   ))}
                 </div>
@@ -358,10 +442,69 @@ export function Admin({ access }: { access: Access }) {
                   <h2>Pekerjaan terbaru</h2>
                   <button onClick={() => setTab("Tasks")}>Lihat semua →</button>
                 </div>
+                <section className="admin-card admin-table-wrap">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Task</th>
+                        <th>Sprint</th>
+                        <th>Prioritas</th>
+                        <th>Progres</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows
+                        .slice(-6)
+                        .reverse()
+                        .map((row) => (
+                          <tr key={row.id}>
+                            <td>
+                              <small>TASK-{row.id}</small>
+                              <strong>{row.title}</strong>
+                            </td>
+                            <td>
+                              {row.sprintId
+                                ? `Sprint ${data.sprints.find((s) => s.id === row.sprintId)?.number ?? "—"}`
+                                : "Backlog"}
+                            </td>
+                            <td>
+                              <span className={`admin-badge ${row.priority}`}>
+                                {priorities[row.priority]}
+                              </span>
+                            </td>
+                            <td>
+                              {row.steps.filter((step) => step.done).length}/
+                              {row.steps.length}
+                            </td>
+                            <td>
+                              <span className={`admin-badge ${row.status}`}>
+                                {statuses[row.status]}
+                              </span>
+                            </td>
+                            <td>
+                              <button onClick={() => editTask(row)}>Edit</button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  {!rows.length && (
+                    <p className="admin-empty">
+                      Belum ada task. Tambahkan pekerjaan pertama.
+                    </p>
+                  )}
+                </section>
               </>
             )}
             {tab === "Sprint" ? (
               <section className="admin-card admin-table-wrap">
+                <div className="admin-table-tools">
+                  <span className="admin-table-count">
+                    {data.sprints.length} sprint
+                  </span>
+                </div>
                 <table className="admin-table">
                   <thead>
                     <tr>
@@ -427,6 +570,11 @@ export function Admin({ access }: { access: Access }) {
               </section>
             ) : tab === "Akses akun" ? (
               <section className="admin-card admin-table-wrap">
+                <div className="admin-table-tools">
+                  <span className="admin-table-count">
+                    {data.users.length} akun terdaftar
+                  </span>
+                </div>
                 <table className="admin-table">
                   <thead>
                     <tr>
@@ -439,7 +587,10 @@ export function Admin({ access }: { access: Access }) {
                   <tbody>
                     {data.users.map((row) => (
                       <tr key={row.id}>
-                        <td>{row.name}</td>
+                        <td>
+                          <strong>{row.name}</strong>
+                          <small>{row.id === access.user.id ? "Kamu" : "—"}</small>
+                        </td>
                         <td>{row.email}</td>
                         <td>
                           {row.id === access.user.id
@@ -468,7 +619,7 @@ export function Admin({ access }: { access: Access }) {
                   </tbody>
                 </table>
               </section>
-            ) : (
+            ) : tab === "Tasks" || tab === "Backlog" ? (
               <section className="admin-card admin-table-wrap">
                 <div className="admin-table-tools">
                   <input
@@ -493,6 +644,19 @@ export function Admin({ access }: { access: Access }) {
                       ))}
                     </select>
                   )}
+                  <select
+                    aria-label="Filter status"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">Semua status</option>
+                    {statusOptions.map((value) => (
+                      <option key={value} value={value}>
+                        {statuses[value]}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="admin-table-count">{rows.length} task</span>
                 </div>
                 <table className="admin-table">
                   <thead>
@@ -506,68 +670,80 @@ export function Admin({ access }: { access: Access }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(tab === "Ringkasan"
-                      ? rows.slice(-6).reverse()
-                      : rows.slice().reverse()
-                    ).map((row) => (
-                      <tr key={row.id}>
-                        <td>
-                          <small>TASK-{row.id}</small>
-                          <strong>{row.title}</strong>
-                        </td>
-                        <td>
-                          {row.sprintId
-                            ? `Sprint ${data.sprints.find((s) => s.id === row.sprintId)?.number ?? "—"}`
-                            : "Backlog"}
-                        </td>
-                        <td>
-                          <span className={`admin-badge ${row.priority}`}>
-                            {priorities[row.priority]}
-                          </span>
-                        </td>
-                        <td>
-                          {row.steps.filter((step) => step.done).length}/
-                          {row.steps.length}
-                        </td>
-                        <td>
-                          <span className={`admin-badge ${row.status}`}>
-                            {statuses[row.status]}
-                          </span>
-                        </td>
-                        <td>
-                          <button onClick={() => editTask(row)}>Edit</button>
-                          <button
-                            className="admin-danger"
-                            disabled={busy}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Hapus TASK-${row.id}? Task beserta tahapannya akan dihapus.`,
-                                )
-                              )
-                                void mutate(
-                                  "task",
-                                  { id: row.id, version: row.version },
-                                  "DELETE",
-                                );
-                            }}
-                          >
-                            Hapus
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {rows
+                      .slice()
+                      .reverse()
+                      .map((row) => {
+                        const doneSteps = row.steps.filter(
+                          (step) => step.done,
+                        ).length;
+                        const percent = row.steps.length
+                          ? Math.round((doneSteps / row.steps.length) * 100)
+                          : 0;
+                        return (
+                          <tr key={row.id}>
+                            <td>
+                              <small>TASK-{row.id}</small>
+                              <strong>{row.title}</strong>
+                            </td>
+                            <td>
+                              {row.sprintId
+                                ? `Sprint ${data.sprints.find((s) => s.id === row.sprintId)?.number ?? "—"}`
+                                : "Backlog"}
+                            </td>
+                            <td>
+                              <span className={`admin-badge ${row.priority}`}>
+                                {priorities[row.priority]}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="admin-progress">
+                                <span style={{ width: `${percent}%` }} />
+                              </span>
+                              <small>
+                                {doneSteps}/{row.steps.length} tahap
+                              </small>
+                            </td>
+                            <td>
+                              <span className={`admin-badge ${row.status}`}>
+                                {statuses[row.status]}
+                              </span>
+                            </td>
+                            <td>
+                              <button onClick={() => editTask(row)}>Edit</button>
+                              <button
+                                className="admin-danger"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Hapus TASK-${row.id}? Task beserta tahapannya akan dihapus.`,
+                                    )
+                                  )
+                                    void mutate(
+                                      "task",
+                                      { id: row.id, version: row.version },
+                                      "DELETE",
+                                    );
+                                }}
+                              >
+                                Hapus
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
                 {!rows.length && (
                   <p className="admin-empty">
-                    {query
-                      ? "Tidak ada task yang cocok."
+                    {query || statusFilter !== "all" || sprintFilter !== "all"
+                      ? "Tidak ada task yang cocok dengan filter."
                       : "Belum ada task. Tambahkan pekerjaan pertama."}
                   </p>
                 )}
               </section>
-            )}
+            ) : null}
           </>
         )}
       </main>
@@ -582,15 +758,20 @@ export function Admin({ access }: { access: Access }) {
           }}
         >
           <div className="admin-dialog-heading">
-            <h2 id="editor-title">
-              {editor === "sprint"
-                ? sprint?.id
-                  ? "Edit sprint"
-                  : "Sprint baru"
-                : task?.id
-                  ? `Edit TASK-${task.id}`
-                  : "Task baru"}
-            </h2>
+            <div>
+              <span className="admin-eyebrow">
+                {editor === "sprint" ? "SPRINT" : "TASK"}
+              </span>
+              <h2 id="editor-title">
+                {editor === "sprint"
+                  ? sprint?.id
+                    ? "Edit sprint"
+                    : "Sprint baru"
+                  : task?.id
+                    ? `Edit TASK-${task.id}`
+                    : "Task baru"}
+              </h2>
+            </div>
             <button
               disabled={busy}
               onClick={() => setEditor(null)}
@@ -605,331 +786,336 @@ export function Admin({ access }: { access: Access }) {
               void mutate(editor, editor === "sprint" ? sprint : task);
             }}
           >
-            {editor === "sprint" && sprint && (
-              <>
-                <div className="admin-form-grid">
-                  <label>
-                    Nomor sprint
-                    <input
-                      type="number"
-                      min="1"
-                      max="99999"
-                      required
-                      value={sprint.number}
-                      onChange={(e) =>
-                        setSprint({ ...sprint, number: Number(e.target.value) })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      value={sprint.status}
-                      onChange={(e) =>
-                        setSprint({
-                          ...sprint,
-                          status: e.target.value as Sprint["status"],
-                        })
-                      }
-                    >
-                      <option value="planned">Direncanakan</option>
-                      <option value="active">Aktif</option>
-                      <option value="completed">Selesai</option>
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  Fokus sprint
-                  <input
-                    required
-                    minLength={3}
-                    maxLength={180}
-                    value={sprint.title}
-                    onChange={(e) =>
-                      setSprint({ ...sprint, title: e.target.value })
-                    }
-                  />
-                </label>
-                <div className="admin-form-grid">
-                  <label>
-                    Tanggal mulai
-                    <input
-                      type="date"
-                      required
-                      value={sprint.startDate}
-                      onChange={(e) =>
-                        setSprint({ ...sprint, startDate: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Tanggal akhir
-                    <input
-                      type="date"
-                      required
-                      min={sprint.startDate}
-                      value={sprint.endDate}
-                      onChange={(e) =>
-                        setSprint({ ...sprint, endDate: e.target.value })
-                      }
-                    />
-                  </label>
-                </div>
-                <label>
-                  Catatan hasil sprint
-                  <textarea
-                    rows={3}
-                    maxLength={10000}
-                    value={sprint.notes}
-                    onChange={(e) =>
-                      setSprint({ ...sprint, notes: e.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Sumber laporan (opsional)
-                  <input
-                    placeholder="Misalnya: client v1.18.0 · commit…"
-                    maxLength={1000}
-                    value={sprint.source}
-                    onChange={(e) =>
-                      setSprint({ ...sprint, source: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="admin-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={sprint.published}
-                    onChange={(e) =>
-                      setSprint({ ...sprint, published: e.target.checked })
-                    }
-                  />
-                  Terbitkan di laporan publik
-                </label>
-              </>
-            )}
-            {editor === "task" && task && (
-              <>
-                <label>
-                  Judul task
-                  <input
-                    required
-                    minLength={3}
-                    maxLength={180}
-                    value={task.title}
-                    onChange={(e) =>
-                      setTask({ ...task, title: e.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Deskripsi
-                  <textarea
-                    rows={5}
-                    maxLength={10000}
-                    placeholder="Tulis deskripsi task… (Enter untuk baris baru)"
-                    value={task.description}
-                    onChange={(e) =>
-                      setTask({ ...task, description: e.target.value })
-                    }
-                  />
-                </label>
-                <div className="admin-form-grid">
-                  <label>
-                    Sprint
-                    <select
-                      value={task.sprintId ?? ""}
-                      onChange={(e) => {
-                        const sprintId = e.target.value
-                          ? Number(e.target.value)
-                          : null;
-                        setTask({
-                          ...task,
-                          sprintId,
-                          ...(sprintId === null
-                            ? {
-                                status: "todo",
-                                steps: task.steps.map((step) => ({
-                                  ...step,
-                                  done: false,
-                                })),
-                              }
-                            : {}),
-                        });
-                      }}
-                    >
-                      <option value="">Backlog (belum masuk sprint)</option>
-                      {data?.sprints.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          Sprint {s.number} · {s.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Prioritas
-                    <select
-                      value={task.priority}
-                      onChange={(e) =>
-                        setTask({
-                          ...task,
-                          priority: e.target.value as Task["priority"],
-                        })
-                      }
-                    >
-                      {Object.entries(priorities).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div className="admin-form-grid">
-                  <label>
-                    Status
-                    <select
-                      value={task.status}
-                      disabled={task.sprintId === null}
-                      onChange={(e) =>
-                        changeStatus(e.target.value as Task["status"])
-                      }
-                    >
-                      {Object.entries(statuses).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Kategori
-                    <input
-                      maxLength={80}
-                      value={task.category}
-                      onChange={(e) =>
-                        setTask({ ...task, category: e.target.value })
-                      }
-                    />
-                  </label>
-                </div>
-                {task.status === "blocked" && (
-                  <label>
-                    Kendala
-                    <textarea
-                      required
-                      rows={2}
-                      maxLength={2000}
-                      value={task.blocker}
-                      onChange={(e) =>
-                        setTask({ ...task, blocker: e.target.value })
-                      }
-                    />
-                  </label>
-                )}
-                <div className="admin-steps-heading">
-                  <h3>Tahapan pekerjaan</h3>
-                  <span>
-                    {task.steps.filter((step) => step.done).length}/
-                    {task.steps.length} selesai
-                  </span>
-                </div>
-                <div className="admin-edit-steps">
-                  {task.steps.map((step, index) => (
-                    <div key={index}>
+            <div className="admin-dialog-body">
+              {editor === "sprint" && sprint && (
+                <>
+                  <div className="admin-form-grid">
+                    <label>
+                      Nomor sprint
                       <input
-                        type="checkbox"
-                        aria-label={`Tahap ${index + 1} selesai`}
-                        checked={step.done}
-                        disabled={task.sprintId === null}
-                        onChange={(e) =>
-                          updateStep(index, { done: e.target.checked })
-                        }
-                      />
-                      <input
-                        aria-label={`Nama tahap ${index + 1}`}
+                        type="number"
+                        min="1"
+                        max="99999"
                         required
-                        maxLength={180}
-                        value={step.title}
+                        value={sprint.number}
                         onChange={(e) =>
-                          updateStep(index, { title: e.target.value })
+                          setSprint({
+                            ...sprint,
+                            number: Number(e.target.value),
+                          })
                         }
                       />
-                      <button
-                        type="button"
-                        aria-label={`Naikkan tahap ${index + 1}`}
-                        disabled={index === 0}
-                        onClick={() => {
-                          const steps = [...task.steps];
-                          [steps[index - 1], steps[index]] = [
-                            steps[index],
-                            steps[index - 1],
-                          ];
-                          setTask({ ...task, steps });
-                        }}
+                    </label>
+                    <label>
+                      Status
+                      <select
+                        value={sprint.status}
+                        onChange={(e) =>
+                          setSprint({
+                            ...sprint,
+                            status: e.target.value as Sprint["status"],
+                          })
+                        }
                       >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Turunkan tahap ${index + 1}`}
-                        disabled={index === task.steps.length - 1}
-                        onClick={() => {
-                          const steps = [...task.steps];
-                          [steps[index + 1], steps[index]] = [
-                            steps[index],
-                            steps[index + 1],
-                          ];
-                          setTask({ ...task, steps });
-                        }}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Hapus tahap ${index + 1}`}
-                        disabled={task.steps.length <= 1}
-                        onClick={() => {
-                          const steps = task.steps.filter(
-                            (_, i) => i !== index,
-                          );
+                        <option value="planned">Direncanakan</option>
+                        <option value="active">Aktif</option>
+                        <option value="completed">Selesai</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Fokus sprint
+                    <input
+                      required
+                      minLength={3}
+                      maxLength={180}
+                      value={sprint.title}
+                      onChange={(e) =>
+                        setSprint({ ...sprint, title: e.target.value })
+                      }
+                    />
+                  </label>
+                  <div className="admin-form-grid">
+                    <label>
+                      Tanggal mulai
+                      <input
+                        type="date"
+                        required
+                        value={sprint.startDate}
+                        onChange={(e) =>
+                          setSprint({ ...sprint, startDate: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Tanggal akhir
+                      <input
+                        type="date"
+                        required
+                        min={sprint.startDate}
+                        value={sprint.endDate}
+                        onChange={(e) =>
+                          setSprint({ ...sprint, endDate: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Catatan hasil sprint
+                    <textarea
+                      rows={3}
+                      maxLength={10000}
+                      value={sprint.notes}
+                      onChange={(e) =>
+                        setSprint({ ...sprint, notes: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Sumber laporan (opsional)
+                    <input
+                      placeholder="Misalnya: client v1.18.0 · commit…"
+                      maxLength={1000}
+                      value={sprint.source}
+                      onChange={(e) =>
+                        setSprint({ ...sprint, source: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="admin-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={sprint.published}
+                      onChange={(e) =>
+                        setSprint({ ...sprint, published: e.target.checked })
+                      }
+                    />
+                    Terbitkan di laporan publik
+                  </label>
+                </>
+              )}
+              {editor === "task" && task && (
+                <>
+                  <label>
+                    Judul task
+                    <input
+                      required
+                      minLength={3}
+                      maxLength={180}
+                      value={task.title}
+                      onChange={(e) =>
+                        setTask({ ...task, title: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Deskripsi
+                    <textarea
+                      rows={5}
+                      maxLength={10000}
+                      placeholder="Tulis deskripsi task… (Enter untuk baris baru)"
+                      value={task.description}
+                      onChange={(e) =>
+                        setTask({ ...task, description: e.target.value })
+                      }
+                    />
+                  </label>
+                  <div className="admin-form-grid">
+                    <label>
+                      Sprint
+                      <select
+                        value={task.sprintId ?? ""}
+                        onChange={(e) => {
+                          const sprintId = e.target.value
+                            ? Number(e.target.value)
+                            : null;
                           setTask({
                             ...task,
-                            steps,
-                            status: steps.every((s) => s.done)
-                              ? "done"
-                              : task.status,
+                            sprintId,
+                            ...(sprintId === null
+                              ? {
+                                  status: "todo",
+                                  steps: task.steps.map((step) => ({
+                                    ...step,
+                                    done: false,
+                                  })),
+                                }
+                              : {}),
                           });
                         }}
                       >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="admin-add-step"
-                  disabled={task.steps.length >= 30}
-                  onClick={() =>
-                    setTask({
-                      ...task,
-                      status:
-                        task.status === "done" ? "in_progress" : task.status,
-                      steps: [...task.steps, { title: "", done: false }],
-                    })
-                  }
-                >
-                  + Tambah tahap
-                </button>
-              </>
-            )}
-            {error && (
-              <p className="admin-error" role="alert">
-                {error}
-              </p>
-            )}
+                        <option value="">Backlog (belum masuk sprint)</option>
+                        {data?.sprints.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            Sprint {s.number} · {s.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Prioritas
+                      <select
+                        value={task.priority}
+                        onChange={(e) =>
+                          setTask({
+                            ...task,
+                            priority: e.target.value as Task["priority"],
+                          })
+                        }
+                      >
+                        {Object.entries(priorities).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="admin-form-grid">
+                    <label>
+                      Status
+                      <select
+                        value={task.status}
+                        disabled={task.sprintId === null}
+                        onChange={(e) =>
+                          changeStatus(e.target.value as Task["status"])
+                        }
+                      >
+                        {Object.entries(statuses).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Kategori
+                      <input
+                        maxLength={80}
+                        value={task.category}
+                        onChange={(e) =>
+                          setTask({ ...task, category: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                  {task.status === "blocked" && (
+                    <label>
+                      Kendala
+                      <textarea
+                        required
+                        rows={2}
+                        maxLength={2000}
+                        value={task.blocker}
+                        onChange={(e) =>
+                          setTask({ ...task, blocker: e.target.value })
+                        }
+                      />
+                    </label>
+                  )}
+                  <div className="admin-steps-heading">
+                    <h3>Tahapan pekerjaan</h3>
+                    <span>
+                      {task.steps.filter((step) => step.done).length}/
+                      {task.steps.length} selesai
+                    </span>
+                  </div>
+                  <div className="admin-edit-steps">
+                    {task.steps.map((step, index) => (
+                      <div key={index}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Tahap ${index + 1} selesai`}
+                          checked={step.done}
+                          disabled={task.sprintId === null}
+                          onChange={(e) =>
+                            updateStep(index, { done: e.target.checked })
+                          }
+                        />
+                        <input
+                          aria-label={`Nama tahap ${index + 1}`}
+                          required
+                          maxLength={180}
+                          value={step.title}
+                          onChange={(e) =>
+                            updateStep(index, { title: e.target.value })
+                          }
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Naikkan tahap ${index + 1}`}
+                          disabled={index === 0}
+                          onClick={() => {
+                            const steps = [...task.steps];
+                            [steps[index - 1], steps[index]] = [
+                              steps[index],
+                              steps[index - 1],
+                            ];
+                            setTask({ ...task, steps });
+                          }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Turunkan tahap ${index + 1}`}
+                          disabled={index === task.steps.length - 1}
+                          onClick={() => {
+                            const steps = [...task.steps];
+                            [steps[index + 1], steps[index]] = [
+                              steps[index],
+                              steps[index + 1],
+                            ];
+                            setTask({ ...task, steps });
+                          }}
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Hapus tahap ${index + 1}`}
+                          disabled={task.steps.length <= 1}
+                          onClick={() => {
+                            const steps = task.steps.filter(
+                              (_, i) => i !== index,
+                            );
+                            setTask({
+                              ...task,
+                              steps,
+                              status: steps.every((s) => s.done)
+                                ? "done"
+                                : task.status,
+                            });
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="admin-add-step"
+                    disabled={task.steps.length >= 30}
+                    onClick={() =>
+                      setTask({
+                        ...task,
+                        status:
+                          task.status === "done" ? "in_progress" : task.status,
+                        steps: [...task.steps, { title: "", done: false }],
+                      })
+                    }
+                  >
+                    + Tambah tahap
+                  </button>
+                </>
+              )}
+              {error && (
+                <p className="admin-error" role="alert">
+                  {error}
+                </p>
+              )}
+            </div>
             <div className="admin-form-footer">
               <button
                 type="button"
